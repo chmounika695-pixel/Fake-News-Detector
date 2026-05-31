@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="form-container" style="max-width: 800px;">
+    <h2 style="margin-bottom: 1.5rem;">Submit a News Article</h2>
+    <form action="{{ url_for('submit_news') }}" method="POST">
+        <div class="form-group">
+            <label for="headline">Headline</label>
+            <input type="text" id="headline" name="headline" class="form-control" required placeholder="e.g. Breaking: New Discoveries in Space">
+        </div>
+        
+        <div class="form-group">
+            <label for="url">Source URL</label>
+            <input type="url" id="url" name="url" class="form-control" required placeholder="https://example.com/article">
+        </div>
+        
+        <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" name="category" class="form-control" required>
+                <option value="Politics">Politics</option>
+                <option value="Technology">Technology</option>
+                <option value="Health">Health</option>
+                <option value="Science">Science</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="image_url">Image URL (Optional)</label>
+            <input type="url" id="image_url" name="image_url" class="form-control" placeholder="https://example.com/image.jpg">
+        </div>
+        
+        <div class="form-group">
+            <label for="content">Article Content / Summary</label>
+            <textarea id="content" name="content" class="form-control" rows="6" required placeholder="Enter the main content or summary of the article here..."></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Submit for Analysis</button>
+    </form>
+</div>
+{% endblock %}

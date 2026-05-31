@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero">
+    <h1>Fake News Credibility Tracker</h1>
+    <p>Analyze, report, and combat misinformation. Our rule-based system scores news articles based on source reliability, content patterns, and community feedback.</p>
+    {% if not session.get('user_id') %}
+        <a href="{{ url_for('signup') }}" class="btn btn-primary" style="background: white; color: var(--primary); font-size: 1.1rem; padding: 1rem 2rem;">Join the Community</a>
+    {% else %}
+        <a href="{{ url_for('submit_news') }}" class="btn btn-primary" style="background: white; color: var(--primary); font-size: 1.1rem; padding: 1rem 2rem;">Submit an Article</a>
+    {% endif %}
+</div>
+
+<h2 style="margin-bottom: 1.5rem;">Recent Submissions</h2>
+<div class="news-grid">
+    {% for item in news %}
+    <div class="news-card">
+        {% if item.image_url %}
+            <img src="{{ item.image_url }}" alt="News Image" class="news-image">
+        {% else %}
+            <div class="news-image" style="display:flex; align-items:center; justify-content:center; color: #888; background: #eee;">
+                No Image Available
+            </div>
+        {% endif %}
+        <div class="news-content">
+            <span class="news-category">{{ item.category }}</span>
+            <h3 class="news-title"><a href="{{ item.url }}" target="_blank">{{ item.headline }}</a></h3>
+            <div class="news-meta">
+                Submitted by <strong>{{ item.submitted_by }}</strong> on {{ item.date_submitted.strftime('%Y-%m-%d') }}
+            </div>
+            
+            <div class="credibility-badge credibility-{{ item.credibility_label }}">
+                <span>{{ item.credibility_label }}</span>
+                <span>Score: {{ item.credibility_score }}/100</span>
+            </div>
+            
+            <p style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--secondary);">{{ item.content[:100] }}...</p>
+            
+            {% if session.get('user_id') %}
+            <div class="news-actions">
+                <form action="{{ url_for('report_news', news_id=item._id) }}" method="POST">
+                    <select name="reason" class="form-control" style="padding: 0.4rem; font-size: 0.85rem;" required>
+                        <option value="" disabled selected>Report as...</option>
+                        <option value="Misleading Information">Misleading Info</option>
+                        <option value="Manipulated Content">Manipulated Content</option>
+                        <option value="False Claims">False Claims</option>
+                    </select>
+                    <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Report</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <p>No news articles submitted yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}
