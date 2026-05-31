@@ -10,48 +10,123 @@
     {% endif %}
 </div>
 
-<h2 style="margin-bottom: 1.5rem;">Recent Submissions</h2>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <h2>Recent Submissions</h2>
+    <form action="{{ url_for('index') }}" method="GET" style="display: flex; gap: 10px; max-width: 400px; width: 100%;">
+        <input type="text" name="search" class="form-control" placeholder="Search news..." value="{{ search_query if search_query else '' }}">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+</div>
+
 <div class="news-grid">
-    {% for item in news %}
-    <div class="news-card">
-        {% if item.image_url %}
-            <img src="{{ item.image_url }}" alt="News Image" class="news-image">
-        {% else %}
-            <div class="news-image" style="display:flex; align-items:center; justify-content:center; color: #888; background: #eee;">
-                No Image Available
-            </div>
-        {% endif %}
-        <div class="news-content">
-            <span class="news-category">{{ item.category }}</span>
-            <h3 class="news-title"><a href="{{ item.url }}" target="_blank">{{ item.headline }}</a></h3>
-            <div class="news-meta">
-                Submitted by <strong>{{ item.submitted_by }}</strong> on {{ item.date_submitted.strftime('%Y-%m-%d') }}
-            </div>
-            
-            <div class="credibility-badge credibility-{{ item.credibility_label }}">
-                <span>{{ item.credibility_label }}</span>
-                <span>Score: {{ item.credibility_score }}/100</span>
-            </div>
-            
-            <p style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--secondary);">{{ item.content[:100] }}...</p>
-            
-            {% if session.get('user_id') %}
-            <div class="news-actions">
-                <form action="{{ url_for('report_news', news_id=item._id) }}" method="POST">
-                    <select name="reason" class="form-control" style="padding: 0.4rem; font-size: 0.85rem;" required>
-                        <option value="" disabled selected>Report as...</option>
-                        <option value="Misleading Information">Misleading Info</option>
-                        <option value="Manipulated Content">Manipulated Content</option>
-                        <option value="False Claims">False Claims</option>
-                    </select>
-                    <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Report</button>
-                </form>
-            </div>
-            {% endif %}
+
+{% for item in news %}
+
+<div class="news-card">
+
+  {% if item.image_url and item.image_url != "" %}
+<img
+    src="{{ item.image_url }}"
+    alt="News Image"
+    style="
+        width:100%;
+        height:180px;
+        object-fit:cover;
+    ">
+{% else %}
+<div class="placeholder-image">
+    No Image Available
+</div>
+{% endif %}
+{% if item.ocr_text %}
+<span class="news-category"
+      style="background:#0ea5e9;">
+    OCR
+</span>
+{% endif %}
+
+    <div class="news-content">
+
+        <span class="news-category">
+            {{ item.category }}
+        </span>
+
+        <h3 class="news-title">
+            <a href="{{ url_for('article_detail', news_id=item._id) }}">
+                {{ item.headline }}
+            </a>
+        </h3>
+
+        <div class="news-meta">
+            Submitted by
+            <strong>{{ item.submitted_by }}</strong>
+            on
+            {{ item.date_submitted.strftime('%Y-%m-%d') }}
         </div>
+
+        <div class="credibility-badge credibility-{{ item.credibility_label }}">
+            {% if item.ocr_quality %}
+            <span style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 12px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid #00d4ff;">
+                OCR Quality: {{ item.ocr_quality }}
+            </span>
+            {% endif %}
+            
+            <span>{{ item.credibility_label }}</span>
+            <span>Score: {{ item.credibility_score }}/100</span>
+        </div>
+
+        <p style="font-size:0.9rem; margin-bottom:1rem;">
+            {{ item.content[:100] }}...
+        </p>
+
+        {% if session.get('user_id') %}
+        <div class="news-actions">
+
+            <form action="{{ url_for('report_news', news_id=item._id) }}" method="POST">
+
+                <select
+                    name="reason"
+                    class="form-control"
+                    required>
+
+                    <option value="" disabled selected>
+                        Report as...
+                    </option>
+
+                    <option value="Misleading Information">
+                        Misleading Info
+                    </option>
+
+                    <option value="Manipulated Content">
+                        Manipulated Content
+                    </option>
+
+                    <option value="False Claims">
+                        False Claims
+                    </option>
+
+                </select>
+
+                <button
+                    type="submit"
+                    class="btn btn-danger">
+                    Report
+                </button>
+
+            </form>
+
+        </div>
+        {% endif %}
+
     </div>
-    {% else %}
-    <p>No news articles submitted yet.</p>
-    {% endfor %}
+
+</div>
+
+{% else %}
+
+<p>No news articles submitted yet.</p>
+
+{% endfor %}
+
 </div>
 {% endblock %}

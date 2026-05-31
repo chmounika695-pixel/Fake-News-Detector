@@ -1,11 +1,17 @@
 import os
+
+print("APP FILE:", os.path.abspath(__file__))
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from pymongo import MongoClient
 from werkzeug.security import generate_password_hash, check_password_hash
 from bson.objectid import ObjectId
 from datetime import datetime
+from PIL import Image
+import pytesseract
 
 app = Flask(__name__)
+pytesseract.pytesseract.tesseract_cmd = \
+r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 app.secret_key = 'super_secret_key_for_fake_news_tracker'
 
 # MongoDB configuration
@@ -83,8 +89,19 @@ def calculate_credibility(headline, content, url, news_id=None):
 
 @app.route('/')
 def index():
-    all_news = list(news_collection.find().sort("date_submitted", -1))
-    return render_template('index.html', news=all_news)
+    search_query = request.args.get('search', '')
+    query = {}
+    if search_query:
+        regex = {"$regex": search_query, "$options": "i"}
+        query = {
+            "$or": [
+                {"headline": regex},
+                {"content": regex},
+                {"category": regex}
+            ]
+        }
+    all_news = list(news_collection.find(query).sort("date_submitted", -1))
+    return render_template('index.html', news=all_news, search_query=search_query)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -133,35 +150,112 @@ def logout():
 
 @app.route('/submit', methods=['GET', 'POST'])
 def submit_news():
+
     if 'user_id' not in session:
-        flash("Please login to submit news.", "warning")
+        flash("Please login first.", "warning")
         return redirect(url_for('login'))
-        
+
     if request.method == 'POST':
+
+        submission_type = request.form.get('submission_type')
+
+        # =====================
+        # IMAGE UPLOAD MODE
+        # =====================
+        if submission_type == "image":
+
+            uploaded_image = request.files.get("news_image")
+
+            if not uploaded_image or uploaded_image.filename == "":
+                flash("Please upload an image.", "danger")
+                return redirect(url_for("submit_news"))
+
+            os.makedirs("static/uploads", exist_ok=True)
+            image_path = os.path.join(
+    "static/uploads",
+    uploaded_image.filename
+)
+
+            uploaded_image.save(image_path)
+
+            try:
+                ocr_text = pytesseract.image_to_string(
+                    Image.open(image_path)
+                )
+            except Exception as e:
+                flash(f"OCR Error: {str(e)}", "danger")
+                return redirect(url_for("submit_news"))
+
+            score, label = calculate_credibility(
+                "OCR Uploaded News",
+                ocr_text,
+                ""
+            )
+            ocr_length = len(ocr_text.strip())
+            if ocr_length > 500:
+                ocr_quality = "High"
+            elif ocr_length > 100:
+                  ocr_quality = "Medium"
+            else:
+                 ocr_quality = "Low"
+            lines = [line.strip() for line in ocr_text.split('\n') if line.strip()]
+            headline = "OCR Uploaded News"
+            for line in lines:
+                if len(line) > 10:
+                    headline = line[:100]
+                    break
+            if not headline.strip():
+                headline = "OCR Uploaded News"
+
+            news_collection.insert_one({
+                "headline": headline,
+                "content": ocr_text,
+                "ocr_text": ocr_text,
+                "ocr_quality": ocr_quality,
+                "url": "",
+"image_url": "/static/uploads/" + uploaded_image.filename,
+                "category": request.form.get("category"),
+                "uploaded_image": uploaded_image.filename,
+                "credibility_score": score,
+                "credibility_label": label,
+                "submitted_by": session["username"],
+                "date_submitted": datetime.now()
+                
+            })
+
+            flash("Image analyzed successfully!", "success")
+            return redirect(url_for("index"))
+
+        # =====================
+        # TEXT ARTICLE MODE
+        # =====================
         headline = request.form.get('headline')
-        content = request.form.get('content')
         url = request.form.get('url')
         category = request.form.get('category')
-        
-        # Calculate initial credibility
-        score, label = calculate_credibility(headline, content, url)
-        
-        news_item = {
+        image_url = request.form.get('image_url')
+        content = request.form.get('content')
+
+        score, label = calculate_credibility(
+            headline,
+            content,
+            url
+        )
+
+        news_collection.insert_one({
             "headline": headline,
-            "content": content,
             "url": url,
             "category": category,
-            "submitted_by": session['username'],
-            "date_submitted": datetime.now(),
+            "image_url": image_url,
+            "content": content,
             "credibility_score": score,
             "credibility_label": label,
-            "image_url": request.form.get('image_url') # Optional image URL for simplicity instead of file upload
-        }
-        
-        news_collection.insert_one(news_item)
+            "submitted_by": session["username"],
+            "date_submitted": datetime.now()
+        })
+
         flash("News submitted successfully!", "success")
-        return redirect(url_for('index'))
-        
+        return redirect(url_for("index"))
+
     return render_template('submit.html')
 
 @app.route('/report/<news_id>', methods=['POST'])
@@ -191,21 +285,46 @@ def report_news(news_id):
     return redirect(url_for('index'))
 
 @app.route('/dashboard')
-def admin_dashboard():
-    if session.get('role') != 'admin':
-        flash("Access denied. Admins only.", "danger")
-        return redirect(url_for('index'))
+def dashboard():
+
+    if session.get("role") != "admin":
+        flash("Admin access required", "danger")
+        return redirect(url_for("index"))
+
+    news = list(news_collection.find())
+    reports = list(reports_collection.find())
+    sources = list(sources_collection.find())
+
+    stats = {
+        "total": len(news),
+        "reliable": len([n for n in news if n.get("credibility_label") == "Reliable"]),
+        "suspicious": len([n for n in news if n.get("credibility_label") == "Suspicious"]),
+        "fake": len([n for n in news if n.get("credibility_label") == "Fake"]),
+        "reports": len(reports)
+    }
+
+    return render_template(
+        "dashboard.html",
+        news=news,
+        reports=reports,
+        sources=sources,
+        stats=stats
+    )
+
+@app.route('/article/<news_id>')
+def article_detail(news_id):
+    try:
+        news_item = news_collection.find_one({"_id": ObjectId(news_id)})
+        if not news_item:
+            flash("Article not found.", "danger")
+            return redirect(url_for('index'))
+            
+        report_count = reports_collection.count_documents({"news_id": ObjectId(news_id)})
         
-    all_news = list(news_collection.find().sort("date_submitted", -1))
-    all_reports = list(reports_collection.find().sort("date_reported", -1))
-    all_sources = list(sources_collection.find())
-    
-    # Attach news headline to reports for display
-    for report in all_reports:
-        news = news_collection.find_one({"_id": report["news_id"]})
-        report["news_headline"] = news["headline"] if news else "Unknown News"
-    
-    return render_template('dashboard.html', news=all_news, reports=all_reports, sources=all_sources)
+        return render_template('article.html', article=news_item, report_count=report_count)
+    except:
+        flash("Invalid Article ID.", "danger")
+        return redirect(url_for('index'))
 
 @app.route('/add_source', methods=['POST'])
 def add_source():
@@ -215,7 +334,7 @@ def add_source():
     if domain:
         sources_collection.insert_one({"domain": domain})
         flash(f"Trusted source {domain} added.", "success")
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/delete_source/<source_id>', methods=['POST'])
 def delete_source(source_id):
@@ -223,7 +342,7 @@ def delete_source(source_id):
         return redirect(url_for('index'))
     sources_collection.delete_one({"_id": ObjectId(source_id)})
     flash("Trusted source removed.", "info")
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('dashboard'))
 
-if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=False, use_reloader=False)
+if __name__ == "__main__":
+    app.run(debug=True)

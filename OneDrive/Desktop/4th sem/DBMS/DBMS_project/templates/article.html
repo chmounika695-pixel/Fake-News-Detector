@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="article-container" style="max-width: 800px; margin: 0 auto; background: var(--card-bg); padding: 2rem; border-radius: 12px; box-shadow: var(--shadow);">
+    
+    <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <span class="news-category" style="font-size: 1rem;">{{ article.category }}</span>
+        
+        <div class="credibility-badge credibility-{{ article.credibility_label }}" style="margin: 0; width: auto; font-size: 1rem; padding: 0.5rem 1.5rem;">
+            <span>{{ article.credibility_label }} - Score: {{ article.credibility_score }}/100</span>
+        </div>
+    </div>
+
+    <h1 style="font-size: 2.5rem; margin-bottom: 1rem; line-height: 1.2;">{{ article.headline }}</h1>
+
+    <div class="news-meta" style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+        Submitted by <strong>{{ article.submitted_by }}</strong> on {{ article.date_submitted.strftime('%B %d, %Y') }}
+        {% if report_count > 0 %}
+        <span style="color: var(--danger); margin-left: 1rem; font-weight: 500;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Reported {{ report_count }} times
+        </span>
+        {% endif %}
+    </div>
+
+    {% if article.image_url and article.image_url != "" %}
+    <div style="margin-bottom: 2rem; border-radius: 12px; overflow: hidden; background: #ddd;">
+        <img src="{{ article.image_url }}" alt="News Image" style="width: 100%; max-height: 400px; object-fit: contain;">
+    </div>
+    {% endif %}
+
+    <div class="article-content" style="font-size: 1.1rem; line-height: 1.8; color: var(--text-color);">
+        {% if article.ocr_text %}
+        <div style="margin-bottom: 1.5rem; padding: 0.75rem 1rem; background: rgba(14, 165, 233, 0.1); border-left: 4px solid #0ea5e9; border-radius: 4px;">
+            <strong style="color: #0ea5e9; display: flex; align-items: center; gap: 0.5rem;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><polyline points="14 2 14 8 20 8"/><path d="M2 15h10"/><path d="M2 19h10"/></svg>
+                OCR Extracted Content
+            </strong>
+        </div>
+        {% endif %}
+        
+        <div style="white-space: pre-wrap;">{{ article.content }}</div>
+    </div>
+
+    {% if article.url and article.url != "" %}
+    <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+        <h4 style="margin-bottom: 0.5rem;">Source URL</h4>
+        <a href="{{ article.url }}" target="_blank" style="word-break: break-all;">{{ article.url }}</a>
+    </div>
+    {% endif %}
+
+    <div style="margin-top: 3rem; text-align: center;">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary" style="background: var(--secondary); color: white;">&larr; Back to News</a>
+    </div>
+</div>
+{% endblock %}
